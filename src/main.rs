@@ -1,10 +1,15 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::dbg;
 use std::env;
+use tokio;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let env_key = "RIOT_API_KEY";
     let fetcher = DataFetcher::new(env_key);
+
+    let leagues = fetcher.get_all_leagues().await;
 
     println!("Hello, world!");
 }
@@ -14,10 +19,35 @@ struct DataFetcher {
     // api_key: String
 }
 
-#[derive(Serialize, Deserialize)]
-struct LeagueData;
+#[derive(Serialize, Deserialize, Debug)]
+struct RawLeagueData {
+    data: LeagueDataArray,
+}
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
+struct LeagueDataArray {
+    leagues: Vec<LeagueData>,
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+struct LeagueData {
+    id: String,
+    slug: String,
+    name: String,
+    region: String,
+    image: String,
+    priority: i32,
+    displayPriority: DisplayPriority,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct DisplayPriority {
+    position: i32,
+    status: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct Match;
 
 impl DataFetcher {
@@ -30,14 +60,13 @@ impl DataFetcher {
     // fn get_league_by_name(&self, league_name: &str) -> LeagueData {
     // }
 
-    fn get_all_leagues(&self) -> Vec<LeagueData> {
+    async fn get_all_leagues(&self) -> Vec<LeagueData> {
         let endpoint = "persisted/gw/getLeagues";
         let params = [("hl", "en-US")];
 
         let url = http::get_url_for_endpoint_with_params(&endpoint, &params);
-        let data = http::try_serialize_data_from_url::<Vec<LeagueData>>(&self.http_client, url);
-
-        data;
+        let data = http::get_data_from_url::<LeagueDataArray>(&self.http_client, url).await;
+        dbg!(&data);
 
         vec![]
     }
@@ -51,10 +80,11 @@ mod http {
     type ParamPairs<'a> = &'a [(&'a str, &'a str)];
     type UrlString = String;
 
-    pub async fn try_serialize_data_from_url<T>(client: &Client, url: UrlString) -> T
+    pub async fn get_data_from_url<T>(client: &Client, url: UrlString) -> T
     where
         T: Serialize + for<'de> Deserialize<'de>,
     {
+        dbg!(client.get(&url).send().await.unwrap().text().await.unwrap());
         client.get(url).send().await.unwrap().json().await.unwrap()
     }
 
