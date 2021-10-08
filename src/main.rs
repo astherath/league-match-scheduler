@@ -1,6 +1,5 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::dbg;
 use std::env;
 use tokio;
 
@@ -9,9 +8,10 @@ async fn main() {
     let env_key = "RIOT_API_KEY";
     let fetcher = DataFetcher::new(env_key);
 
-    let leagues = fetcher.get_all_leagues().await;
+    let league_wanted = "worlds";
 
-    println!("Hello, world!");
+    let league = fetcher.get_league_by_name(league_wanted).await;
+    dbg!(league);
 }
 
 struct DataFetcher {
@@ -30,7 +30,7 @@ struct LeagueDataArray {
 }
 
 #[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 struct LeagueData {
     id: String,
     slug: String,
@@ -41,7 +41,7 @@ struct LeagueData {
     displayPriority: DisplayPriority,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 struct DisplayPriority {
     position: i32,
     status: String,
@@ -57,18 +57,22 @@ impl DataFetcher {
         Self { http_client }
     }
 
-    // fn get_league_by_name(&self, league_name: &str) -> LeagueData {
-    // }
+    async fn get_league_by_name(&self, league_name: &str) -> Option<LeagueData> {
+        let needle = league_name.to_string().to_lowercase();
+        let leagues = self.get_all_leagues().await;
+        leagues
+            .leagues
+            .into_iter()
+            .find(|x| x.name.to_lowercase() == needle)
+    }
 
-    async fn get_all_leagues(&self) -> Vec<LeagueData> {
+    async fn get_all_leagues(&self) -> LeagueDataArray {
         let endpoint = "persisted/gw/getLeagues";
         let params = [("hl", "en-US")];
 
         let url = http::get_url_for_endpoint_with_params(&endpoint, &params);
-        let data = http::get_data_from_url::<LeagueDataArray>(&self.http_client, url).await;
-        dbg!(&data);
-
-        vec![]
+        let data = http::get_data_from_url::<RawLeagueData>(&self.http_client, url).await;
+        data.data
     }
 }
 
@@ -84,7 +88,6 @@ mod http {
     where
         T: Serialize + for<'de> Deserialize<'de>,
     {
-        dbg!(client.get(&url).send().await.unwrap().text().await.unwrap());
         client.get(url).send().await.unwrap().json().await.unwrap()
     }
 
