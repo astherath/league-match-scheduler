@@ -1,3 +1,4 @@
+use matches::CompleteMatchData;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -10,13 +11,16 @@ async fn main() {
 
     let league_wanted = "worlds";
 
-    let league = fetcher.get_league_by_name(league_wanted).await;
-    dbg!(league);
+    let league = fetcher
+        .get_league_by_name(league_wanted)
+        .await
+        .expect("league data should have been succesfully fetched");
+    let matches = fetcher.get_matches_for_league(league).await;
+    dbg!(matches);
 }
 
 struct DataFetcher {
     http_client: Client,
-    // api_key: String
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -29,7 +33,6 @@ struct LeagueDataArray {
     leagues: Vec<LeagueData>,
 }
 
-#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug, Default)]
 struct LeagueData {
     id: String,
@@ -38,7 +41,8 @@ struct LeagueData {
     region: String,
     image: String,
     priority: i32,
-    displayPriority: DisplayPriority,
+    #[serde(rename = "displayPriority")]
+    display_priority: DisplayPriority,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -47,8 +51,87 @@ struct DisplayPriority {
     status: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Match;
+mod matches {
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct CompleteMatchData {
+        data: Data,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct Data {
+        schedule: Schedule,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct Schedule {
+        pages: Pages,
+        events: Vec<MatchData>,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Pages {
+        older: String,
+        newer: String,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    pub struct MatchData {
+        start_time: String,
+        state: String, // TODO: this should be an enum
+        #[serde(rename = "type")]
+        match_type: String,
+        block_name: Option<String>,
+        league: League,
+        #[serde(rename = "match")]
+        match_data: Option<Match>,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct League {
+        name: String,
+        slug: String,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Match {
+        id: String,
+        teams: Vec<Team>,
+        flags: Vec<String>,
+        strategy: Strategy,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Team {
+        name: String,
+        code: String,
+        image: String,
+        result: Option<Result>,
+        record: Option<Record>,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Result {
+        #[serde(rename = "gameWins")]
+        game_wins: u32,
+        outcome: String, // TODO: this should be an enum
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Record {
+        wins: u8,
+        losses: u8,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Strategy {
+        #[serde(rename = "type")]
+        match_type: String,
+        count: u8,
+    }
+}
 
 impl DataFetcher {
     fn new(env_key: &str) -> Self {
@@ -67,12 +150,24 @@ impl DataFetcher {
     }
 
     async fn get_all_leagues(&self) -> LeagueDataArray {
-        let endpoint = "persisted/gw/getLeagues";
+        let endpoint = "getLeagues";
         let params = [("hl", "en-US")];
 
         let url = http::get_url_for_endpoint_with_params(&endpoint, &params);
         let data = http::get_data_from_url::<RawLeagueData>(&self.http_client, url).await;
         data.data
+    }
+
+    async fn get_matches_for_league(&self, league: LeagueData) -> CompleteMatchData {
+        let league_id = league.id;
+        let endpoint = "getSchedule";
+        let params = [("hl", "en-US"), ("leagueId", &league_id)];
+
+        let url = http::get_url_for_endpoint_with_params(&endpoint, &params);
+        let data = http::get_data_from_url(&self.http_client, url).await;
+        dbg!(&data);
+
+        data
     }
 }
 
@@ -88,7 +183,8 @@ mod http {
     where
         T: Serialize + for<'de> Deserialize<'de>,
     {
-        client.get(url).send().await.unwrap().json().await.unwrap()
+        dbg!(client.get(&url).send().await.unwrap().text().await.unwrap());
+        client.get(&url).send().await.unwrap().json().await.unwrap()
     }
 
     pub fn get_url_for_endpoint_with_params(endpoint: &str, params: ParamPairs) -> UrlString {
@@ -104,7 +200,7 @@ mod http {
     }
 
     fn base_url() -> Url {
-        let base_url_str = "https://esports-api.lolesports.com";
+        let base_url_str = "https://esports-api.lolesports.com/persisted/gw/";
         Url::parse(base_url_str).unwrap()
     }
 
