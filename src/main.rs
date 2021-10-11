@@ -83,10 +83,10 @@ mod matches {
         state: String, // TODO: this should be an enum
         #[serde(rename = "type")]
         match_type: String,
-        block_name: Option<String>,
+        block_name: String,
         league: League,
         #[serde(rename = "match")]
-        match_data: Option<Match>,
+        match_data: Match,
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -116,7 +116,7 @@ mod matches {
     pub struct Result {
         #[serde(rename = "gameWins")]
         game_wins: u32,
-        outcome: String, // TODO: this should be an enum
+        outcome: Option<String>, // TODO: this should be an enu>m
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -183,7 +183,6 @@ mod http {
     where
         T: Serialize + for<'de> Deserialize<'de>,
     {
-        dbg!(client.get(&url).send().await.unwrap().text().await.unwrap());
         client.get(&url).send().await.unwrap().json().await.unwrap()
     }
 
