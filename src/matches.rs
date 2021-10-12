@@ -1,19 +1,21 @@
+use chrono::{DateTime, Duration, NaiveDateTime};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CompleteMatchData {
-    data: Data,
+    pub data: Data,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Data {
-    schedule: Schedule,
+pub struct Data {
+    pub schedule: Schedule,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Schedule {
+pub struct Schedule {
     pages: Pages,
-    events: Vec<MatchData>,
+    pub events: Vec<MatchData>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -25,55 +27,102 @@ pub struct Pages {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct MatchData {
-    start_time: String,
-    state: String, // TODO: this should be an enum
+    pub start_time: String,
+    pub state: String, // TODO: this should be an enum
     #[serde(rename = "type")]
-    match_type: String,
-    block_name: String,
-    league: League,
+    pub match_type: String,
+    pub block_name: String,
+    pub league: League,
     #[serde(rename = "match")]
-    match_data: Match,
+    pub match_data: Match,
+}
+
+impl MatchData {
+    pub fn start_timestamp(&self) -> NaiveDateTime {
+        DateTime::parse_from_rfc3339(&self.start_time)
+            .unwrap()
+            .naive_local()
+    }
+
+    pub fn end_timestamp(&self) -> NaiveDateTime {
+        let start = self.start_timestamp();
+        let end = Duration::hours(self.match_data.strategy.count as i64);
+        start + end
+    }
+
+    pub fn summary(&self) -> String {
+        format!("{}", self.match_data.summary())
+    }
+
+    pub fn description(&self) -> String {
+        format!("{}", self.match_data.description())
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct League {
-    name: String,
-    slug: String,
+    pub name: String,
+    pub slug: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Match {
-    id: String,
-    teams: Vec<Team>,
-    flags: Vec<String>,
-    strategy: Strategy,
+    pub id: String,
+    pub teams: Vec<Team>,
+    pub flags: Vec<String>,
+    pub strategy: Strategy,
+}
+
+impl Match {
+    fn summary(&self) -> String {
+        format!("{} vs {}", self.teams[0].code, self.teams[1].code)
+    }
+    fn description(&self) -> String {
+        format!("{} | {}", self.teams[0], self.teams[1])
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Team {
-    name: String,
-    code: String,
-    image: String,
-    result: Option<Result>,
-    record: Option<Record>,
+    pub name: String,
+    pub code: String,
+    pub image: String,
+    pub result: Option<Result>,
+    pub record: Option<Record>,
+}
+
+impl fmt::Display for Team {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let record_str = match &self.record {
+            Some(record) => record.to_string(),
+            None => "".to_string(),
+        };
+        write!(f, "{} {}", &self.name, record_str)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Result {
     #[serde(rename = "gameWins")]
-    game_wins: u32,
-    outcome: Option<String>, // TODO: this should be an enu>m
+    pub game_wins: u32,
+    pub outcome: Option<String>, // TODO: this should be an enu>m
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Record {
-    wins: u8,
-    losses: u8,
+    pub wins: u8,
+    pub losses: u8,
+}
+
+impl fmt::Display for Record {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}-{})", &self.wins, &self.losses)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Strategy {
     #[serde(rename = "type")]
-    match_type: String,
-    count: u8,
+    pub match_type: String,
+    pub count: u8,
 }

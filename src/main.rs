@@ -1,4 +1,5 @@
 use tokio;
+mod calendar;
 mod fetcher;
 mod http;
 mod leagues;
@@ -16,5 +17,6 @@ async fn main() {
         .await
         .expect("league data should have been succesfully fetched");
     let matches = fetcher.get_matches_for_league(league).await;
-    dbg!(matches);
+
+    calendar::generate_calendar_event_for_match(&matches[0]);
 }

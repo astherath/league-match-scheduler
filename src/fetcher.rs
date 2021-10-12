@@ -1,6 +1,6 @@
 use super::http;
 use super::leagues::{LeagueData, LeagueDataArray, RawLeagueData};
-use super::matches::CompleteMatchData;
+use super::matches::{CompleteMatchData, MatchData};
 use reqwest::Client;
 
 pub struct DataFetcher {
@@ -13,15 +13,14 @@ impl DataFetcher {
         Self { http_client }
     }
 
-    pub async fn get_matches_for_league(&self, league: LeagueData) -> CompleteMatchData {
+    pub async fn get_matches_for_league(&self, league: LeagueData) -> Vec<MatchData> {
         let league_id = league.id;
         let endpoint = "getSchedule";
         let params = [("hl", "en-US"), ("leagueId", &league_id)];
 
         let url = http::get_url_for_endpoint_with_params(&endpoint, &params);
-        let data = http::get_data_from_url(&self.http_client, url).await;
-
-        data
+        let data = http::get_data_from_url::<CompleteMatchData>(&self.http_client, url).await;
+        data.data.schedule.events
     }
 
     pub async fn get_league_by_name(&self, league_name: &str) -> Option<LeagueData> {
