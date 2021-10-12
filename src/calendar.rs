@@ -9,7 +9,7 @@ pub fn generate_calendar_event_for_match(matches: &[MatchData]) -> io::Result<()
         calendar.push(event);
     });
 
-    let filename = "/Users/felipearce/Downloads/test.ics";
+    let filename = "matches.ics";
     let data = calendar.to_string();
     fs::write(filename, &data)?;
     Ok(())
