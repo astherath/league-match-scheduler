@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, NaiveDateTime};
+use chrono::{DateTime, Duration, Local, NaiveDateTime, TimeZone};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -24,11 +24,11 @@ pub struct Pages {
     newer: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[serde(rename_all = "camelCase")]
 pub struct MatchData {
     pub start_time: String,
-    pub state: String, // TODO: this should be an enum
+    pub state: String,
     #[serde(rename = "type")]
     pub match_type: String,
     pub block_name: String,
@@ -39,9 +39,13 @@ pub struct MatchData {
 
 impl MatchData {
     pub fn start_timestamp(&self) -> NaiveDateTime {
-        DateTime::parse_from_rfc3339(&self.start_time)
+        let mut date_time = DateTime::parse_from_rfc3339(&self.start_time)
             .unwrap()
-            .naive_local()
+            .naive_utc();
+        let offset = Local::offset_from_utc_datetime(&Local, &date_time);
+        let offset_in_secs = Duration::seconds(offset.local_minus_utc() as i64);
+        date_time = date_time + offset_in_secs;
+        date_time
     }
 
     pub fn end_timestamp(&self) -> NaiveDateTime {
@@ -59,13 +63,13 @@ impl MatchData {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct League {
     pub name: String,
     pub slug: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Match {
     pub id: String,
     pub teams: Vec<Team>,
@@ -82,7 +86,7 @@ impl Match {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Team {
     pub name: String,
     pub code: String,
@@ -101,14 +105,14 @@ impl fmt::Display for Team {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Result {
     #[serde(rename = "gameWins")]
     pub game_wins: u32,
-    pub outcome: Option<String>, // TODO: this should be an enu>m
+    pub outcome: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Record {
     pub wins: u8,
     pub losses: u8,
@@ -120,7 +124,7 @@ impl fmt::Display for Record {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Strategy {
     #[serde(rename = "type")]
     pub match_type: String,

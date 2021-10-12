@@ -15,8 +15,18 @@ async fn main() {
     let league = fetcher
         .get_league_by_name(league_wanted)
         .await
-        .expect("league data should have been succesfully fetched");
-    let matches = fetcher.get_matches_for_league(league).await;
+        .expect("error fetching league data");
+    let mut matches = fetcher
+        .get_matches_for_league(league)
+        .await
+        .into_iter()
+        // get uncompleted matches
+        .filter(|x| x.state != "completed")
+        // get groups matches
+        .filter(|x| x.block_name == "Groups")
+        // sort by start date
+        .collect::<Vec<matches::MatchData>>();
+    matches.sort();
 
-    calendar::generate_calendar_event_for_match(&matches[0]);
+    calendar::generate_calendar_event_for_match(&matches).expect("error creating calendar file");
 }
